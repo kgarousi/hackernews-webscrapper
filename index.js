@@ -36,7 +36,7 @@ async function sortHackerNewsArticles() {
       }
     
       //merge array of arrays into single array
-      mergedArray = ageList.flat(1);
+      mergedAgeArray = ageList.flat(1);
 
       //close page
       await page.close();
@@ -44,21 +44,18 @@ async function sortHackerNewsArticles() {
       // get first 100 articles and store their age
       firstHun = []
       for (let i = 0; i < 100; i++){
-        firstHun.push(mergedArray[i])
+        firstHun.push({"age": mergedAgeArray[i]})
       }
-
 
       //send age of articles to server
       app.get("/", (req, res) => {
-        res.send(
-          firstHun.map(age => 
-            `${age}`
-          )
+        res.json(
+          firstHun
         );
       });
       
-      //port of local server is 3000
-      app.listen(3000, () => {
-        console.log(`Server is running on port 3000.`);
+      //port of local server is 5000
+      app.listen(5000, () => {
+        console.log(`Server is running on port 5000.`);
       });
 }
