@@ -1,77 +1,70 @@
-// EDIT THIS FILE TO COMPLETE ASSIGNMENT QUESTION 1
 const { chromium } = require("playwright");
 const express = require("express");
 const cors = require("cors");
+
 const app = express();
+const PORT = 5000;
+
 app.use(cors());
 app.use(express.json());
 
 (async () => {
-  await sortHackerNewsArticles();
+  const articles = await getHackerNewsArticles();
+
+  app.get("/", (req, res) => {
+    res.json(articles);
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}.`);
+  });
 })();
 
+async function getHackerNewsArticles() {
+  const browser = await chromium.launch({ headless: false });
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
-async function sortHackerNewsArticles() {
-  // launch browser
-    const browser = await chromium.launch({ headless: false });
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    const ageList = [];
-    const titleList = [];
+  const ageList = [];
+  const titleList = [];
 
-  // go to Hacker News
-      await page.goto("https://news.ycombinator.com/newest");
-  // grab articles age from first 4 pages and store in array of arrays
-      for(let i = 0; i < 4; i++){  
-        const ages = await page.$$eval('.subtext > .subline ', allAges => {
-          const data = [];
-          allAges.forEach(articleAge => {
-              const ageEl = articleAge.querySelector('.age');
-              const age = ageEl.getAttribute('title');
-              data.push(age);
-            });
-            return data 
-        })
-        ageList.push(ages);
-        
-        const titles = await page.$$eval('.athing > .title > .titleline', allTitles => {
-          const data = [];
-          allTitles.forEach(articleTitle => {
-              const titleEl = articleTitle.querySelector('a');
-              const title = titleEl ? titleEl.innerText : null;
-              data.push(title);
-          });
-          return data;
-        });
-        titleList.push(titles)
+  await page.goto("https://news.ycombinator.com/newest");
 
-        await page.click('.morelink');
-      }
-    
-      //merge array of arrays into single array
-      mergedAgeArray = ageList.flat(1);
-      mergedTitleArray = titleList.flat(1);
+  for (let i = 0; i < 4; i++) {
+    const ages = await getArticleAges(page);
+    ageList.push(...ages);
 
-      //close page
-      await page.close();
+    const titles = await getArticleTitles(page);
+    titleList.push(...titles);
 
-      // get first 100 articles and store their age and titles
-      firstHun = []
-      for (let i = 0; i < 100; i++){
-        firstHun.push({"date": mergedAgeArray[i], "title" : mergedTitleArray[i]})
-      }
+    // Navigate to the next page
+    await page.click('.morelink');
+    await page.waitForTimeout(2000); // Ensure the next page loads fully
+  }
 
-      console.log(firstHun)
+  await page.close();
+  await browser.close();
 
-      //send age of articles to server
-      app.get("/", (req, res) => {
-        res.json(
-          firstHun
-        );
-      });
-      
-      //port of local server is 5000
-      app.listen(5000, () => {
-        console.log(`Server is running on port 5000.`);
-      });
+  return getFirstHundredArticles(ageList, titleList);
+}
+
+async function getArticleAges(page) {
+  return page.$$eval('.subtext .age', elements =>
+    elements.map(el => el.getAttribute('title')).filter(age => age) // Filter out null or undefined ages
+  );
+}
+
+async function getArticleTitles(page) {
+  // Inspecting the HTML structure to identify correct selectors
+  return page.$$eval('.athing .title .titleline', elements =>
+    elements.map(el => el.innerText.trim()).filter(title => title && title !== 'Hacker News') // Ensure non-empty titles
+  );
+}
+
+function getFirstHundredArticles(ages, titles) {
+  // Combine titles and ages into an array of objects
+  return ages.slice(0, 100).map((age, index) => ({
+    date: age,
+    title: titles[index] || 'No title available' // Default value if title is missing
+  }));
 }
