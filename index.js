@@ -38,14 +38,14 @@ async function sortHackerNewsArticles() {
       //merge array of arrays into single array
       mergedArray = ageList.flat(1);
 
+      //close page
+      await page.close();
+
       // get first 100 articles and store their age
       firstHun = []
       for (let i = 0; i < 100; i++){
         firstHun.push(mergedArray[i])
       }
-
-      //close page
-      await page.close();
 
 
       //send age of articles to server
