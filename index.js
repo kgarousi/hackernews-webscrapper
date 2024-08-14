@@ -2,69 +2,78 @@ const { chromium } = require("playwright");
 const express = require("express");
 const cors = require("cors");
 
-const app = express();
-const PORT = 5000;
+// Define the server setup function
+function createServer(articles) {
+  const app = express();
+  const PORT = 5000;
 
-app.use(cors());
-app.use(express.json());
+  app.use(cors()); // Enable CORS for all routes
+  app.use(express.json()); // Parse incoming JSON requests
 
-(async () => {
-  const articles = await getHackerNewsArticles();
-
+  // Define a route to serve the fetched articles
   app.get("/", (req, res) => {
-    res.json(articles);
+    res.json(articles); // Send the articles as JSON response
   });
 
+  // Start the Express server and listen on the specified port
   app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}.`);
+    console.log(`Server is running on port ${PORT}.`); // Log a message to the console
   });
+}
+
+// Main function to fetch articles and initialize the server
+(async () => {
+  const articles = await getHackerNewsArticles(); // Fetch articles from Hacker News
+  createServer(articles); // Initialize the server with fetched articles
 })();
 
+// Function to fetch articles from Hacker News
 async function getHackerNewsArticles() {
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const browser = await chromium.launch({ headless: false }); // Launch Chromium browser
+  const context = await browser.newContext(); // Create a new browser context
+  const page = await context.newPage(); // Open a new page/tab in the browser
 
-  const ageList = [];
-  const titleList = [];
+  const ageList = []; // Array to store article ages (dates)
+  const titleList = []; // Array to store article titles
 
-  await page.goto("https://news.ycombinator.com/newest");
+  await page.goto("https://news.ycombinator.com/newest"); // Navigate to Hacker News newest page
 
+  // Iterate to scrape multiple pages of articles
   for (let i = 0; i < 4; i++) {
     const ages = await getArticleAges(page);
-    ageList.push(...ages);
+    ageList.push(...ages); // Spread operator to add ages to the ageList
 
     const titles = await getArticleTitles(page);
-    titleList.push(...titles);
+    titleList.push(...titles); // Spread operator to add titles to the titleList
 
-    // Navigate to the next page
-    await page.click('.morelink');
-    await page.waitForTimeout(2000); // Ensure the next page loads fully
+    await page.click('.morelink'); // Click on the "More" link to go to the next page
+    await page.waitForTimeout(2000); // Wait for 2 seconds to ensure the next page loads fully
   }
 
-  await page.close();
-  await browser.close();
+  await page.close(); // Close the page
+  await browser.close(); // Close the browser
 
-  return getFirstHundredArticles(ageList, titleList);
+  return getFirstHundredArticles(ageList, titleList); // Return the first 100 articles
 }
 
+// Function to extract article ages from the page
 async function getArticleAges(page) {
   return page.$$eval('.subtext .age', elements =>
-    elements.map(el => el.getAttribute('title')).filter(age => age) // Filter out null or undefined ages
+    elements.map(el => el.getAttribute('title')).filter(age => age) // Get the 'title' attribute and filter out null or undefined ages
   );
 }
 
+// Function to extract article titles from the page
 async function getArticleTitles(page) {
-  // Inspecting the HTML structure to identify correct selectors
   return page.$$eval('.athing .title .titleline', elements =>
-    elements.map(el => el.innerText.trim()).filter(title => title && title !== 'Hacker News') // Ensure non-empty titles
+    elements.map(el => el.innerText.trim()).filter(title => title && title !== 'Hacker News') // Get inner text, trim it, and filter out empty or irrelevant titles
   );
 }
 
+// Function to combine titles and ages into a list of article objects
 function getFirstHundredArticles(ages, titles) {
-  // Combine titles and ages into an array of objects
   return ages.slice(0, 100).map((age, index) => ({
-    date: age,
-    title: titles[index] || 'No title available' // Default value if title is missing
+    date: age, // Date (age) of the article
+    title: titles[index] || 'No title available' // Title of the article, defaulting to 'No title available' if missing
   }));
 }
