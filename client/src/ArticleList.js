@@ -30,10 +30,13 @@ function ArticleList() {
 
   return (
     <div>
-      <h1>Article Ages</h1>
+      <h1>Article Information</h1>
       <ul>
         {data.map((item, index) => (
-          <li key={index}>Age: {item.age}</li>
+          <li key={index}>
+            <strong>Title:</strong> {item.title} <br />
+            <strong>Date:</strong> {item.date}
+          </li>
         ))}
       </ul>
     </div>

@@ -17,6 +17,7 @@ async function sortHackerNewsArticles() {
     const context = await browser.newContext();
     const page = await context.newPage();
     const ageList = [];
+    const titleList = [];
 
   // go to Hacker News
       await page.goto("https://news.ycombinator.com/newest");
@@ -32,20 +33,35 @@ async function sortHackerNewsArticles() {
             return data 
         })
         ageList.push(ages);
+        
+        const titles = await page.$$eval('.athing > .title > .titleline', allTitles => {
+          const data = [];
+          allTitles.forEach(articleTitle => {
+              const titleEl = articleTitle.querySelector('a');
+              const title = titleEl ? titleEl.innerText : null;
+              data.push(title);
+          });
+          return data;
+        });
+        titleList.push(titles)
+
         await page.click('.morelink');
       }
     
       //merge array of arrays into single array
       mergedAgeArray = ageList.flat(1);
+      mergedTitleArray = titleList.flat(1);
 
       //close page
       await page.close();
 
-      // get first 100 articles and store their age
+      // get first 100 articles and store their age and titles
       firstHun = []
       for (let i = 0; i < 100; i++){
-        firstHun.push({"age": mergedAgeArray[i]})
+        firstHun.push({"date": mergedAgeArray[i], "title" : mergedTitleArray[i]})
       }
+
+      console.log(firstHun)
 
       //send age of articles to server
       app.get("/", (req, res) => {
